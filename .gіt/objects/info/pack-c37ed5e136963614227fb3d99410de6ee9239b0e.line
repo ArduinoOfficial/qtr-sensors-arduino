@@ -1,9 +1,11 @@
 #include <QTRSensors.h>
 #include <EEPROM.h>
-#define sagmotorpwmpin 6
+#define sagyon 7
+#define sagyon2 6
+#define solyon 9
+#define solyon2 8
+#define sagmotorpwmpin 10
 #define solmotorpwmpin 5
-#define solyon 4
-#define sagyon 10
 
 #define start_buton 11
 #define arti_buton 9
