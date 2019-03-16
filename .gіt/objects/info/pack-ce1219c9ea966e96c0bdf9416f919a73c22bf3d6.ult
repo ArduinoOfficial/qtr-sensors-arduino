@@ -1,0 +1,117 @@
+#define sagyon 7
+#define sagyon2 6
+#define solyon 9
+#define solyon2 8
+#define sagmotorpwmpin 10
+#define solmotorpwmpin 5
+
+#define TRIGR 2
+#define ECHOR 13
+#define TRIGM 11
+#define ECHOM 12
+#define TRIGL 4
+#define ECHOL 3
+
+// Initialize the sensor
+void setup() {
+  pinMode(sagyon, OUTPUT);
+  pinMode(sagmotorpwmpin, OUTPUT);
+  pinMode(solyon, OUTPUT);
+  pinMode(solmotorpwmpin, OUTPUT);
+  pinMode(TRIGL, OUTPUT); 
+  pinMode(TRIGM, OUTPUT); 
+  pinMode(TRIGR, OUTPUT); 
+  pinMode(ECHOL, INPUT); 
+  pinMode(ECHOM, INPUT); 
+  pinMode(ECHOR, INPUT); 
+  Serial.begin(9600);
+  delay(9);
+  /*while (true) {
+    motorkontrol(80, 80);
+    delay(1000);
+    fren(100);
+    motorkontrol(80 * -1, 80 * -1);
+    delay(1000);
+    fren(100);
+  }*/
+}
+
+float sag = 0;
+#define SAGK 0.7
+#define SPEED 60
+void loop() {
+  /*Serial.print(round(getDistanceCM(TRIGL, ECHOL)));
+  Serial.print("\t");
+  Serial.print(round(getDistanceCM(TRIGM, ECHOM)));
+  Serial.print("\t");
+  Serial.print(round(getDistanceCM(TRIGR, ECHOR)));
+  Serial.println(" ");
+  return;*/
+  int l, m, r;
+  l = getDistanceCM(TRIGL, ECHOL);
+  m = getDistanceCM(TRIGM, ECHOM);
+  r = getDistanceCM(TRIGR, ECHOR);
+
+  if (m < 23) {
+    if (l > r) {
+      motorkontrol(SPEED, -1 * SPEED * SAGK);
+    } else {
+      motorkontrol(SPEED * -1, SPEED * SAGK);
+    }
+    delay(300);
+  }
+  else if (m > 23) motorkontrol(SPEED, SPEED * SAGK);
+  /*while (getDistanceCM(TRIGM, ECHOM) >= 15) {
+    motorkontrol(100 + (sag > 10 ? 10 : 0), 100 + (sag < 10 ? 0 : (10 - sag) * 5));
+    sag = getDistanceCM(TRIGR, ECHOR);
+  }
+  while (getDistanceCM(TRIGM, ECHOM) < 15) {
+    motorkontrol(-100, 100);
+    sag = getDistanceCM(TRIGR, ECHOR);
+  }*/
+}
+
+
+void motorkontrol(int sol, int sag) {
+  
+  if (sag > 254)   sag = 254;   if (sol > 254) sol = 254;
+  if (sag < -254)  sag = -254;  if (sol < -254) sol = -254;
+  
+  if (sol < 0) {
+    sol = abs(sol);  digitalWrite(solyon, LOW); digitalWrite(solyon2, HIGH); analogWrite(solmotorpwmpin, sol);
+  }
+  else {
+    digitalWrite(solyon, HIGH); digitalWrite(solyon2, LOW);
+    analogWrite(solmotorpwmpin, sol);
+  }
+
+  if (sag < 0) {
+    sag = abs(sag);  digitalWrite(sagyon, HIGH); digitalWrite(sagyon2, LOW); analogWrite(sagmotorpwmpin, sag);
+  }
+  else {
+    digitalWrite(sagyon, LOW); digitalWrite(sagyon2, HIGH);
+    analogWrite(sagmotorpwmpin, sag);
+  }
+
+}
+
+void fren(int ms) {
+  motorkontrol(0, 0);
+  delay(ms);
+}
+
+float getDistanceCM(int trig, int echo) {
+  // Clears the trig
+  digitalWrite(trig, LOW);
+  delayMicroseconds(10);
+  // Sets the trig on HIGH state for 10 micro seconds
+  digitalWrite(trig, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trig, LOW);
+  // Reads the echo, returns the sound wave travel time in microseconds
+  float duration = pulseIn(echo, HIGH);
+  // Calculating the distance
+  float distance = duration * 0.034 / 2;
+  distance = min(distance, 100);
+  return distance;
+}
