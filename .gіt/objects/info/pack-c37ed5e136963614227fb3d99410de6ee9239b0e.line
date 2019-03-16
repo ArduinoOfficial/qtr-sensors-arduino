@@ -1,0 +1,169 @@
+#include <QTRSensors.h>
+#include <EEPROM.h>
+#define sagmotorpwmpin 6
+#define solmotorpwmpin 5
+#define solyon 4
+#define sagyon 10
+
+#define start_buton 11
+#define arti_buton 9
+#define eksi_buton 8
+
+#define esc 3
+#define solencoder 2
+#define sagencoder 7
+#define mz 12
+
+#define tabanhiz 50
+#define taktik 12
+
+#define LED 13
+
+// QTRBA sensörümüzü bağlı olduğu pinleri tanımlayıp
+//sernsorlerden gelen veriler için sensors dizisi oluşturuyoruz
+
+QTRSensors qtr;
+
+unsigned int sensors[8];
+
+// Değişkenlerimizi tanımlıyoruz
+float Kp = 0.035;
+int ekhiz = 0;
+float Kd = 0.45;
+int sonhata = 0;
+float Ki = 0.0001;
+int integral = 0;
+int hata = 0;
+byte K = 0;
+
+int sagmotorpwm = 0;
+int cizgisay = 0;
+long baslamazamani = 0;
+int solmotorpwm = 0;
+long doksanzamani = 50000;
+unsigned char zemin = 0;
+
+void setup() {
+  qtr.setTypeAnalog();
+  qtr.setSensorPins((const uint8_t[]){A0,A1,A2,A3,A4,A5,A6,A7}, 8);
+  // qtr.setSensorPins((const uint8_t[]){A7,A6,A5,A4,A3,A2,A1,A0}, 8);
+  // Dijital olarak kullanacağımız pinlerin giriş veya çıkış olarak tanımlıyoruz
+  pinMode(sagyon, OUTPUT);
+  pinMode(sagmotorpwmpin, OUTPUT);
+  pinMode(solyon, OUTPUT);
+  pinMode(solmotorpwmpin, OUTPUT);
+  pinMode(taktik, INPUT_PULLUP);
+
+  delay(1000); // kalibrasyon başlamadan ek süre koyuyoruz
+
+  //Kalibrasyon kodları arduino üzerindeki led yanık olduğu sürece devam eder
+  digitalWrite(LED, HIGH);
+
+for (int i = 0; i < 150; i++) {
+  if (0 <= i && i < 5) {
+    hafifsagadon();
+  }
+  if (5 <= i && i < 15) {
+    hafifsoladon();
+  }
+  if (15 <= i && i < 25) {
+    hafifsagadon();
+  }
+  if (25 <= i && i < 35) {
+    hafifsoladon();
+  }
+  if (35 <= i && i < 45) {
+    hafifsagadon();
+  }
+  if (45 <= i && i < 50) {
+    hafifsoladon();
+  }
+
+  if (i >= 50) {
+    frenle(1);
+    delay(3);
+  }
+
+  qtr.calibrate();
+  delay(1);
+}
+
+flashyap();
+
+  frenle(1);
+}
+
+void loop () {
+  sensoroku();
+  //Serial.println(hata); delay(50);
+
+  // motorlara verilecek hız düzeltme oran hesabı PID
+  integral += hata; // çizgiden uzaklaştıkça hataları toplar
+  if (abs(hata) < 500) integral = 0;
+  int duzeltmehizi = Kp * hata + Kd * (hata - sonhata) + Ki * integral;
+  sonhata = hata;
+
+  // Motorlara uygulanacak kesin hız ayarları
+  sagmotorpwm = tabanhiz + duzeltmehizi + ekhiz;
+  solmotorpwm = tabanhiz - duzeltmehizi + ekhiz;
+
+  // motorlara hız ayarlarının uygulanması
+  // Burada motorlara uygulanacak PWM değerlerine sınırlandırma getirilmiştir.
+  sagmotorpwm = constrain(sagmotorpwm, -50, 254);
+  solmotorpwm = constrain(solmotorpwm, -50, 254);
+  motorkontrol(solmotorpwm, sagmotorpwm);
+}
+
+void motorkontrol(int sol, int sag) {
+  
+  if (sag > 254)   sag = 254;   if (sol > 254) sol = 254;
+  if (sag < -254)  sag = -254;  if (sol < -254) sol = -254;
+  
+  if (sol < 0) {
+    sol = abs(sol);  digitalWrite(solyon, HIGH);  analogWrite(solmotorpwmpin, sol);
+  }
+  else {
+    digitalWrite(solyon, LOW);
+    analogWrite(solmotorpwmpin, sol);
+  }
+
+  if (sag < 0) {
+    sag = abs(sag);  digitalWrite(sagyon, HIGH);  analogWrite(sagmotorpwmpin, sag);
+  }
+  else {
+    digitalWrite(sagyon, LOW);
+    analogWrite(sagmotorpwmpin, sag);
+  }
+
+}
+
+void frenle(int bekle) {
+  motorkontrol(0, 0);
+  delay(bekle);
+}
+
+void hafifsagadon() {
+  motorkontrol(60, -60);
+}
+
+void hafifsoladon() {
+  motorkontrol(-60, 60);
+}
+
+void sensoroku() {
+  // Çizgi sensörü pozisyon hesap kodları
+  unsigned int position = zemin == 1 ? qtr.readLineBlack(sensors) : qtr.readLineWhite(sensors);
+  Serial.print("position: ");
+  Serial.println(position);
+  hata = position - 3500;
+}
+
+void flashyap() {
+  // 4 saniye bekler
+  for (int x = 0; x < 10; x++) {
+    digitalWrite(LED, HIGH);
+    delay(200);
+    digitalWrite(LED, LOW);
+    delay(200);
+  }
+}
